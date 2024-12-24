@@ -4,9 +4,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
-from fake_useragent import FakeUserAgent
 from bs4 import BeautifulSoup
 from dotenv import dotenv_values
+import traceback
 import datetime
 import csv
 import random
@@ -14,7 +14,6 @@ import re
 
 OPTIONS = [
   "--disable-blink-features=AutomationControlled",
-  #"--headless",
   "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" # Instead of HeadlessChrome
 ]
 
@@ -27,7 +26,6 @@ LINKS = {
   "twitterLogin": "https://x.com/i/flow/login"
 }
 
-# Yes, that is AI-generated
 KEYWORDS = [
     # Technology
     "AI", "MachineLearning", "Python", "TechNews", "CyberSecurity", "Blockchain", "Programming", "WebDevelopment", "DataScience",
@@ -49,6 +47,8 @@ KEYWORDS = [
     "SuperBowl", "Oscars", "WorldCup", "MetGala", "BlackFriday", "CyberMonday", "NewYear2024", "Christmas", "Halloween"
 ]
 
+PROMOTED="Promowane"
+
 class Crawler:
   def __init__(self):
     options = webdriver.ChromeOptions()
@@ -60,12 +60,10 @@ class Crawler:
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     driver.implicitly_wait(30.)
     self.driver = driver
-    self.ua = FakeUserAgent()
     self.config = dotenv_values(".env")
     self.seen = set()
     self.dump = open(f"data/{datetime.datetime.now()}.csv", 'w', newline='')
     self.writer = csv.DictWriter(self.dump, fieldnames=['content'])
-    self.count = 0
   
   def fill_form(self, xpath, value: str):
     wait = WebDriverWait(self.driver, 60)
@@ -77,24 +75,35 @@ class Crawler:
       action.pause(random.uniform(.1, .3))
     action.send_keys(Keys.ENTER)
     action.perform()
-    wait.until(EC.staleness_of(element))
 
   def scroll_down(self):
     action = ActionChains(self.driver)
-    action.scroll_by_amount(0, 500)
-    action.pause(random.uniform(1., 2.))
+    action.scroll_by_amount(0, round(random.uniform(500, 1000)))
+    action.pause(random.uniform(1, 2))
     action.perform()
+
+  @staticmethod
+  def is_valid(soup):
+    if soup.find("div", {"data-testid": "tweet-text-show-more-link"}):
+      return False 
+    if soup.find("span", string=lambda txt: txt == PROMOTED):
+      return False
+    if not soup.find("div", {"lang": "en"}):
+      return False
+    return True
 
   def get_tweets(self):
     wait = WebDriverWait(self.driver, 60)
-    xpath = '//*[div[@data-testid="tweetText" and @lang="en"]]'
-    elements = [div.get_attribute("innerHTML") for div in wait.until(EC.presence_of_all_elements_located((By.XPATH, xpath)))]
-    for element in elements:
-      soup = BeautifulSoup(element, "html.parser")
-      if soup.find("div", {"data-testid": "tweet-text-show-more-link"}) != None:
+    tweet_container = '//article[@data-testid="tweet"]'
+    containers = [div.get_attribute("innerHTML") for div in wait.until(EC.presence_of_all_elements_located((By.XPATH, tweet_container)))]
+    scraped = 0
+    for html in containers:
+      soup = BeautifulSoup(html, "html.parser")
+      tweet = soup.find("div", {"data-testid": "tweetText"})
+      if not Crawler.is_valid(soup) or not tweet:
         continue
       result = ""
-      for tag in soup.find("div").find_all(re.compile("(?:span)|(?:img)")):
+      for tag in tweet.find_all(re.compile("(?:span)|(?:img)")):
         if tag.name == "span":
           result = result + tag.text
         else:
@@ -105,47 +114,53 @@ class Crawler:
       self.seen.add(result)
       self.writer.writerow({"content": result})
       self.dump.flush()
-      self.count = self.count + 1
+      scraped = scraped + 1
+    return scraped
       
   def search(self, keyword):
-    xpath = '//input[@data-testid="SearchBox_Search_Input"]'
-    self.fill_form(xpath, keyword)
-
-  def switch_agent(self):
-    agent = self.ua.random
-    self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": agent})
+    action = ActionChains(self.driver)
+    wait = WebDriverWait(self.driver, 60)
+    maxlen = len(max(KEYWORDS, key=len))
+    search_bar = '//input[@data-testid="SearchBox_Search_Input"]'
+    element = wait.until(EC.element_to_be_clickable((By.XPATH, search_bar)))
+    action.click(on_element=element)
+    action.send_keys(Keys.BACKSPACE * maxlen)
+    action.send_keys(keyword + Keys.ENTER)
+    action.perform()
 
   def twitter_login(self):
-    try:
-      self.driver.get(LINKS["twitterLogin"])
-      self.fill_form('//input[@autocomplete="username"]', self.config["USERNAME"])
-      self.fill_form('//input[@autocomplete="current-password"]', self.config["PASSWORD"])
-    except:
-      raise Exception("⚠️ Could not log into twitter... (run without --headless to see why)") from None
-
-  def run(self, keywords):
+    self.driver.get("https://x.com/i/flow/login")
+    self.fill_form('//input[@autocomplete="username"]', self.config["USERNAME"])
+    self.fill_form('//input[@autocomplete="current-password"]', self.config["PASSWORD"])
+    
+  def run(self):
     self.twitter_login()
-    random.shuffle(keywords)
-    for keyword in keywords:
-      try:
-        self.count = 0
-        self.search(keyword)
-        while self.count < 200:
-          self.get_tweets()
-          self.scroll_down()
-        self.switch_agent() # Never let them know your next move
-      except: 
-        raise Exception(f"⚠️ Something went wrong on keyword={keyword}. Stopping... ({len(self.seen)} tweets scraped)") from None
+    global_strikes = 0
+    while True:
+      if global_strikes >= 10:
+        break
+      keyword = random.choice(KEYWORDS)
+      self.search(keyword)
+      bound = random.uniform(50, 100)
+      scraped = 0
+      strikes = 0
+      while scraped <= bound:
+        new = self.get_tweets()
+        strikes = strikes + 1 if not new else 0
+        if strikes >= 10:
+          global_strikes = global_strikes + 1
+          break
+        scraped = scraped + new
+        self.scroll_down()
+      print(f"Scraped {scraped} tweets using keyword '{keyword}'")
+    self.run_no_search()
   
   def run_no_search(self):
-    self.twitter_login()
-    self.count = 0
-    try:
-      while self.count <= 1000:
-        self.get_tweets()
-        self.scroll_down()
-    except: 
-      raise Exception(f"Elon musk more like Elon SUCKS ({len(self.seen)} tweets scraped)") from None
+    self.driver.get("https://x.com/home")
+    scraped = 0
+    while scraped <= 1000:
+      scraped = scraped + self.get_tweets()
+      self.scroll_down()
 
   def __del__(self):
     self.dump.close()
@@ -153,5 +168,9 @@ class Crawler:
 
 if __name__ == "__main__":
   crawler = Crawler()
-  #crawler.run(KEYWORDS)
-  crawler.run_no_search()
+  try:
+    crawler.run()
+  except:
+    traceback.print_exc()
+  finally:
+    print(f'Total = {len(crawler.seen)} tweets scraped')
