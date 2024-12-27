@@ -64,6 +64,7 @@ class Crawler:
     self.seen = set()
     self.dump = open(f"data/{datetime.datetime.now()}.csv", 'w', newline='')
     self.writer = csv.DictWriter(self.dump, fieldnames=['content'])
+    self.logged_in = False
   
   def fill_form(self, xpath, value: str):
     wait = WebDriverWait(self.driver, 60)
@@ -95,27 +96,31 @@ class Crawler:
   def get_tweets(self):
     wait = WebDriverWait(self.driver, 60)
     tweet_container = '//article[@data-testid="tweet"]'
-    containers = [div.get_attribute("innerHTML") for div in wait.until(EC.presence_of_all_elements_located((By.XPATH, tweet_container)))]
-    scraped = 0
-    for html in containers:
-      soup = BeautifulSoup(html, "html.parser")
-      tweet = soup.find("div", {"data-testid": "tweetText"})
-      if not Crawler.is_valid(soup) or not tweet:
-        continue
-      result = ""
-      for tag in tweet.find_all(re.compile("(?:span)|(?:img)")):
-        if tag.name == "span":
-          result = result + tag.text
-        else:
-          result = result + tag["alt"]
-      result = " ".join(result.split())
-      if result in self.seen:
-        continue 
-      self.seen.add(result)
-      self.writer.writerow({"content": result})
-      self.dump.flush()
-      scraped = scraped + 1
-    return scraped
+    try:
+      containers = [div.get_attribute("innerHTML") for div in wait.until(EC.presence_of_all_elements_located((By.XPATH, tweet_container)))]
+    except:
+      return 0
+    else:  
+      scraped = 0
+      for html in containers:
+        soup = BeautifulSoup(html, "html.parser")
+        tweet = soup.find("div", {"data-testid": "tweetText"})
+        if not Crawler.is_valid(soup) or not tweet:
+          continue
+        result = ""
+        for tag in tweet.find_all(re.compile("(?:span)|(?:img)")):
+          if tag.name == "span":
+            result = result + tag.text
+          else:
+            result = result + tag["alt"]
+        result = " ".join(result.split())
+        if result in self.seen:
+          continue 
+        self.seen.add(result)
+        self.writer.writerow({"content": result})
+        self.dump.flush()
+        scraped = scraped + 1
+      return scraped
       
   def search(self, keyword):
     action = ActionChains(self.driver)
@@ -132,9 +137,11 @@ class Crawler:
     self.driver.get("https://x.com/i/flow/login")
     self.fill_form('//input[@autocomplete="username"]', self.config["USERNAME"])
     self.fill_form('//input[@autocomplete="current-password"]', self.config["PASSWORD"])
+    self.logged_in = True
     
   def run(self):
-    self.twitter_login()
+    if not self.logged_in:
+      self.twitter_login()
     global_strikes = 0
     while True:
       if global_strikes >= 10:
@@ -156,6 +163,8 @@ class Crawler:
     self.run_no_search()
   
   def run_no_search(self):
+    if not self.logged_in:
+      self.twitter_login()
     self.driver.get("https://x.com/home")
     scraped = 0
     while scraped <= 1000:
