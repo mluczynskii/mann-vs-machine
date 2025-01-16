@@ -1,6 +1,17 @@
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+# Preprocessing of the dataset needed by this model:
+# transformation into bag-of-words.
+# 1. Split about whitespace
+# 2. retain alphanumeric (or even just alphabetic) characters only
+# 3. convert to uniform case
+def custom_tokenize(x):
+    return str.casefold("".join(
+        filter(lambda s: str.isalpha(s) or str.isspace(s),
+                x))).split()
+
+
 def gradient(xs, ys, beta):
     k = beta.shape[0]
     res = []
@@ -9,6 +20,7 @@ def gradient(xs, ys, beta):
         partial = np.dot(xs[:, j], aux)
         res.append(partial)
     return np.array(res)
+
 
 def reg_gradient_descent(xs, ys, n_iters, learning_rate,
                          regularization=None, alpha=1):
@@ -33,23 +45,88 @@ class LogisticRegressionModel:
         self.vectorizer = TfidfVectorizer(
             sublinear_tf=True,
             max_df=0.6, # should it be more, so that stop words are filtered out?
-            min_df=5
+            min_df=5    # TODO: these parameters in custom preprocessing
         )
 
 
-    # We use sklearn.TfidfVectorizer while preprocessing.
-    # We could replace it by our own implementation of
-    # tf-idf vectorization. It shouldn't be too difficult.
-    def preprocess_training_set(self, X):
-        return self.vectorizer.fit_transform(X)
+    def preprocess_training_set(self, X, custom=True):
+        """Preprocesses the training set. The model is thereby fitted to
+        the training data. Uses a custom implementation
+        of tf-idf feature extraction if `custom` is True, otherwise uses
+        sklearn's TfidfVectorizer. 
+        
+        `X` is expected to be in the form of a Python list of strings."""
+        
+        if custom:
+            X = list(map(custom_tokenize, X))
+            
+            vocab = set()
+            dictnry = dict()
+            for tweet in X:
+                for word in set(tweet):
+                    vocab.add(word)
+                    if word not in dictnry:
+                        dictnry[word] = 1
+                    else:
+                        dictnry[word] += 1
+
+            self.vocabulary = list(vocab)
+            self.dictionary = dictnry
+
+            n_docs = len(X)
+            n_features = len(vocab)
+            matrix = np.zeros((n_docs, n_features))
+            for i in range(n_docs):
+                for j in range(n_features):
+                    doc = X[i]
+                    word = self.vocabulary[j]
+
+                    tf = doc.count(word)/len(doc)
+                    idf = (n_docs + 1)/(self.dictionary[word] + 1)
+                    matrix[i, j] = tf*idf
+
+            return matrix
+        else:
+            return self.vectorizer.fit_transform(X).toarray()
     
     
-    def preprocess_test_set(self, X):
-        return self.vectorizer.transform(X)
+    def preprocess_test_set(self, X, custom=True):
+        """Preprocesses the test set using the corpus assembled during
+        training. Uses a custom implementation
+        of tf-idf feature extraction if `custom` is True, otherwise uses
+        sklearn's TfidfVectorizer. 
+        
+        `X` is expected to be in the form of a Python list of strings."""
+        
+        if custom:
+            X = list(map(custom_tokenize, X))
+
+            n_docs = len(X)
+            n_features = len(self.vocabulary)
+            matrix = np.zeros((n_docs, n_features))
+            for i in range(n_docs):
+                for j in range(n_features):
+                    doc = X[i]
+                    word = self.vocabulary[j]
+
+                    tf = doc.count(word)/len(doc)
+                    idf = (n_docs + 1)/(self.dictionary[word] + 1)
+                    matrix[i, j] = tf*idf
+
+            return matrix
+        else:
+            return self.vectorizer.transform(X).toarray()
         
 
     def train(self, xs, ys, n_iters=300, learning_rate=0.001,
                regularization=None, alpha=1):
+        """Trains the logistic regression model on the given data,
+        executing `n_iters` iterations of gradient descent with
+        the given learning rate. The parameter `regularization`
+        can be set to either \"l1\" or \"l2\", and `alpha` is the
+        rate of regularization.
+        
+        `xs` and `ys` are expected to be numpy arrays."""
         xs = np.concatenate((np.ones((xs.shape[0], 1)), xs), axis=1)
         self.beta = reg_gradient_descent(xs, ys,
                                          n_iters,
@@ -59,11 +136,18 @@ class LogisticRegressionModel:
 
 
     def classify_point(self, x):
+        """Classifies the given data point (numpy array).
+        
+        The returned value is 0 or 1."""
+
         xbeta = np.dot(np.concatenate(([1], x)), self.beta)
         return 1 if xbeta >= 0 else 0
     
 
     def classify(self, xs):
+        """Maps a vector of data points (numpy array) to a vector
+        of class labels (0 or 1) by classifying them all."""
+
         return np.apply_along_axis(self.classify_point, 1, xs)
     
 
