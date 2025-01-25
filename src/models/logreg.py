@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 import src.models.tokenization as tkn
+from src.models.exception import NotFittedError, NotTrainedError
 
 def gradient(xs, ys, beta):
     k = beta.shape[0]
@@ -31,6 +32,10 @@ def reg_gradient_descent(xs, ys, n_iters, learning_rate,
 
         
 class LogisticRegressionModel:
+
+
+    custom_trained = False
+
 
     def __init__(self):
         self.vectorizer = TfidfVectorizer(
@@ -105,6 +110,12 @@ class LogisticRegressionModel:
             n_test_docs = len(X)
 
             n_features = len(self.vocabulary)
+            if n_features == 0:
+                raise NotFittedError(
+                    """The custom Naive Bayes model has not been fitted yet.
+                    You must preprocess a training set first."""
+                )
+            
             matrix = np.zeros((n_test_docs, n_features))
             for i in range(n_test_docs):
                 for j in range(n_features):
@@ -138,12 +149,18 @@ class LogisticRegressionModel:
                                          learning_rate,
                                          regularization=regularization, 
                                          alpha=alpha)
+        self.custom_trained = True
 
 
     def classify_point(self, x):
         """Classifies the given data point (numpy array).
         
         The returned value is 0 or 1."""
+
+        if not self.custom_trained:
+            raise NotTrainedError(
+                "This custom Logistic Regression model has not been trained yet."
+            )
 
         xbeta = np.dot(np.concatenate(([1], x)), self.beta)
         return 1 if xbeta >= 0 else 0
