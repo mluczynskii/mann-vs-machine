@@ -1,6 +1,6 @@
 import numpy as np
 
-import tokenization as tkn
+import src.models.tokenization as tkn
 
 
 class NaiveBayesModel:

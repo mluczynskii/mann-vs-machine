@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-import tokenization as tkn
+import src.models.tokenization as tkn
 
 def gradient(xs, ys, beta):
     k = beta.shape[0]
@@ -67,16 +67,16 @@ class LogisticRegressionModel:
             self.vocabulary = list(vocab)
             self.dictionary = dictnry
 
-            n_docs = len(X)
+            self.n_docs = len(X)
             n_features = len(vocab)
-            matrix = np.zeros((n_docs, n_features))
-            for i in range(n_docs):
+            matrix = np.zeros((self.n_docs, n_features))
+            for i in range(self.n_docs):
                 for j in range(n_features):
                     doc = X[i]
                     word = self.vocabulary[j]
 
                     tf = doc.count(word)/len(doc)
-                    idf = (n_docs + 1)/(self.dictionary[word] + 1)
+                    idf = (self.n_docs + 1)/(self.dictionary[word] + 1)
                     matrix[i, j] = tf*idf
 
             return matrix
@@ -102,16 +102,17 @@ class LogisticRegressionModel:
                     X
             ))
 
-            n_docs = len(X)
+            n_test_docs = len(X)
+
             n_features = len(self.vocabulary)
-            matrix = np.zeros((n_docs, n_features))
-            for i in range(n_docs):
+            matrix = np.zeros((n_test_docs, n_features))
+            for i in range(n_test_docs):
                 for j in range(n_features):
                     doc = X[i]
                     word = self.vocabulary[j]
 
                     tf = doc.count(word)/len(doc)
-                    idf = (n_docs + 1)/(self.dictionary[word] + 1)
+                    idf = (self.n_docs + 1)/(self.dictionary[word] + 1)
                     matrix[i, j] = tf*idf
 
             return matrix
