@@ -1,24 +1,17 @@
 import numpy as np
 
+import tokenization as tkn
+
+
 class NaiveBayesModel:
 
-
-    # Preprocessing of the dataset needed by this model:
-    # transformation into bag-of-words, or even set-of-words.
-    # 1. Split about whitespace
-    # 2. retain alphanumeric (or even just alphabetic) characters only
-    # 3. convert to uniform case
-    # 4. remove duplicates of words from individual tweets
-    def preprocess_tweet(_, x):
+    def preprocess_tweet(_, x, splitpascals=False):
         """Tokenizes a string."""
 
-        toks = str.casefold("".join(
-            filter(lambda s: str.isalpha(s) or str.isspace(s),
-                    x))).split()
-        return set(toks) 
+        return tkn.tokenize(x, returntype="set", splitpascals=splitpascals)
     
     def preprocess_set(self, X):
-        """Tokenizes all data points in the gives dataset.
+        """Tokenizes all data points in the given dataset.
         
         `X` is expected to be a regular Python list."""
         return list(map(self.preprocess_tweet, X))

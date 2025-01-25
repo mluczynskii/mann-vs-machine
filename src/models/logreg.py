@@ -1,16 +1,7 @@
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-# Preprocessing of the dataset needed by this model:
-# transformation into bag-of-words.
-# 1. Split about whitespace
-# 2. retain alphanumeric (or even just alphabetic) characters only
-# 3. convert to uniform case
-def custom_tokenize(x):
-    return str.casefold("".join(
-        filter(lambda s: str.isalpha(s) or str.isspace(s),
-                x))).split()
-
+import tokenization as tkn
 
 def gradient(xs, ys, beta):
     k = beta.shape[0]
@@ -49,7 +40,7 @@ class LogisticRegressionModel:
         )
 
 
-    def preprocess_training_set(self, X, custom=True):
+    def preprocess_training_set(self, X, custom=True, splitpascals=False):
         """Preprocesses the training set. The model is thereby fitted to
         the training data. Uses a custom implementation
         of tf-idf feature extraction if `custom` is True, otherwise uses
@@ -58,7 +49,10 @@ class LogisticRegressionModel:
         `X` is expected to be in the form of a Python list of strings."""
         
         if custom:
-            X = list(map(custom_tokenize, X))
+            X = list(map(
+                    lambda x: tkn.tokenize(x, splitpascals=splitpascals),
+                    X
+            ))
             
             vocab = set()
             dictnry = dict()
@@ -87,19 +81,26 @@ class LogisticRegressionModel:
 
             return matrix
         else:
+            if splitpascals:
+                X = list(map(tkn.split_pascals, X))
+
             return self.vectorizer.fit_transform(X).toarray()
     
     
-    def preprocess_test_set(self, X, custom=True):
+    def preprocess_test_set(self, X, custom=True, splitpascals=False):
         """Preprocesses the test set using the corpus assembled during
         training. Uses a custom implementation
         of tf-idf feature extraction if `custom` is True, otherwise uses
-        sklearn's TfidfVectorizer. 
+        sklearn's TfidfVectorizer. Splits phrases written in Pascal case
+        into individual words if splitpascals is True.
         
         `X` is expected to be in the form of a Python list of strings."""
         
         if custom:
-            X = list(map(custom_tokenize, X))
+            X = list(map(
+                    lambda x: tkn.tokenize(x, splitpascals=splitpascals),
+                    X
+            ))
 
             n_docs = len(X)
             n_features = len(self.vocabulary)
@@ -115,6 +116,9 @@ class LogisticRegressionModel:
 
             return matrix
         else:
+            if splitpascals:
+                X = list(map(tkn.split_pascals, X))
+            
             return self.vectorizer.transform(X).toarray()
         
 
