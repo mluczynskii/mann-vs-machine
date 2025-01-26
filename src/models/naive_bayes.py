@@ -36,6 +36,7 @@ class NaiveBayesModel:
                     n[label] += 1
                 else:
                     d[word] = [0, 0] 
+                    d[word][label] += 1
 
         self.dictionary = d
         self.n = n
@@ -58,7 +59,9 @@ class NaiveBayesModel:
 
             for word in x:
                 if word in self.dictionary:
-                    coeff[label] += np.log(self.dictionary[word][label])
+                    count = self.dictionary[word][label]
+                    if count != 0:
+                        coeff[label] += np.log(self.dictionary[word][label])
 
         return 1 if coeff[1] >= coeff[0] else 0
 
