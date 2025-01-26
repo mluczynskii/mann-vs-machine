@@ -33,10 +33,6 @@ def reg_gradient_descent(xs, ys, n_iters, learning_rate,
         
 class LogisticRegressionModel:
 
-
-    custom_trained = False
-
-
     def __init__(self):
         self.vectorizer = TfidfVectorizer(
             sublinear_tf=True,
@@ -72,16 +68,16 @@ class LogisticRegressionModel:
             self.vocabulary = list(vocab)
             self.dictionary = dictnry
 
-            self.n_docs = len(X)
+            n_docs = len(X)
             n_features = len(vocab)
-            matrix = np.zeros((self.n_docs, n_features))
-            for i in range(self.n_docs):
+            matrix = np.zeros((n_docs, n_features))
+            for i in range(n_docs):
                 for j in range(n_features):
                     doc = X[i]
                     word = self.vocabulary[j]
 
                     tf = doc.count(word)/len(doc)
-                    idf = (self.n_docs + 1)/(self.dictionary[word] + 1)
+                    idf = (n_docs + 1)/(self.dictionary[word] + 1)
                     matrix[i, j] = tf*idf
 
             return matrix
@@ -123,7 +119,7 @@ class LogisticRegressionModel:
                     word = self.vocabulary[j]
 
                     tf = doc.count(word)/len(doc)
-                    idf = (self.n_docs + 1)/(self.dictionary[word] + 1)
+                    idf = (len(self.vocabulary) + 1)/(self.dictionary[word] + 1)
                     matrix[i, j] = tf*idf
 
             return matrix
@@ -149,7 +145,6 @@ class LogisticRegressionModel:
                                          learning_rate,
                                          regularization=regularization, 
                                          alpha=alpha)
-        self.custom_trained = True
 
 
     def classify_point(self, x):
