@@ -51,8 +51,9 @@ class W2VDataset(Dataset):
     return self.data[idx]
 
 class SkipGram(nn.Module):
-  def __init__(self, vocab_size, embed_size, negative_samples=10):
+  def __init__(self, vocab, vocab_size, embed_size, negative_samples=10):
     super(SkipGram, self).__init__()
+    self.vocab = vocab
     self.vocab_size = vocab_size
     self.word_embed = nn.Embedding(vocab_size, embed_size)
     self.ctx_embed = nn.Embedding(vocab_size, embed_size)
@@ -91,8 +92,10 @@ class SkipGram(nn.Module):
   def save_model(self, filename):
     torch.save(self, filename)
 
-dataset = W2VDataset()
-vocab = dataset.get_vocab()
+  def embed_sentence(self, sentence):
+    tokens = torch.tensor([self.vocab[word] for word in tokenize(sentence) if word in self.vocab.keys()])
+    embed = self.word_embed(tokens).mean(dim=0)
+    return embed
 
 def load_model(filename):
   model = torch.load(filename, weights_only=False)
@@ -101,11 +104,13 @@ def load_model(filename):
   model.eval()
   return model
 
-def embed_sentence(sentence, model):
-  tokens = torch.tensor([vocab[word] for word in tokenize(sentence) if word in vocab.keys()])
-  embed = model.word_embed(tokens).mean(dim=0)
-  print(f"Sentence embedding={embed}, shape={embed.shape}")
-  return embed
+if __name__ == "__main__":
+  dataset = W2VDataset()
+  loader = DataLoader(dataset, batch_size=32, shuffle=True)
+  vocab = dataset.get_vocab()
+  model = SkipGram(vocab, len(vocab), 100)
+  model.run_training(loader, num_epochs=5)
+  model.save_model("skipgram.pth")
 
   
 
