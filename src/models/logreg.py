@@ -152,11 +152,6 @@ class LogisticRegressionModel:
         
         The returned value is 0 or 1."""
 
-        if not self.custom_trained:
-            raise NotTrainedError(
-                "This custom Logistic Regression model has not been trained yet."
-            )
-
         xbeta = np.dot(np.concatenate(([1], x)), self.beta)
         return 1 if xbeta >= 0 else 0
     
