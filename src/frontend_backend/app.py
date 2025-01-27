@@ -5,19 +5,19 @@ from pydantic import BaseModel
 import torch
 import uvicorn
 import os
-from src.models.logreg import LogisticRegressionModel
+from src.models.naive_bayes import NaiveBayesModel
 
 app = FastAPI()
 templates = Jinja2Templates(directory="src/frontend_backend/templates")
 
-model = LogisticRegressionModel()
+model = NaiveBayesModel()
 
-model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logRegModel.pth')
+model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'naiveBayesModel.pth')
 model_data = torch.load(model_path)
 
-model.beta = model_data['beta'].numpy()
-model.vocabulary = model_data['vocabulary']
+model.n = model_data['n']
 model.dictionary = model_data['dictionary']
+model.custom_trained = True
 
 class TweetRequest(BaseModel):
     tweet: str
@@ -28,7 +28,7 @@ def read_root(request: Request):
 
 @app.post("/classify/")
 def classify_tweet(request: TweetRequest):
-    processed_tweet = model.preprocess_test_set([request.tweet], custom=True)
+    processed_tweet = model.preprocess_set([request.tweet])
     classification = model.classify(processed_tweet)
     is_ai_generated = bool(classification[0])
     print(classification)
