@@ -1,2 +1,5 @@
-### Simple tool for scraping real-life tweets
-If you want to run it yourself, you should add a `.env` file with your twitter credentials (`USERNAME` and `PASSWORD`) - only logged in users can browse twitter freely. The dependencies are listed inside `requirements.txt`, you can run `python3 -m pip install -r requirements.txt` to install them (`.venv` recommended). Everything is ran using Selenium and I don't promise that it works 100% of the time. You should also keep in mind that it could **flag your account** (even though I made the script in a way so it isn't too suspicious...)
+## Utilities for creating the dataset
+1. `scrape.py` - Webscraper code used to gather real-life tweets. Make sure to create a `/data` folder to store results, and `.env` file with your Twitter/X credentials (`USERNAME` and `PASSWORD`).
+2. `gpt_neo_tweets.ipynb` - Jupyter notebook used to generate tweets using GPT-Neo model. Best to run it inside a Google Colab environment
+3. `combine.py` - Simple utility script that combines every webscraper run with the ai-generated tweets, and assigns labels inside a `.csv` file. Just make sure to set global constants corresponding to correct filenames.
+4. `embedding.py` + `parameters.pth` - Implementation and pre-trained SkipGram model for sentence vectorization.  
