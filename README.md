@@ -13,7 +13,7 @@ In the browser go to http://127.0.0.1:8000/
 
 
 Other scripts should be ran from the root of the project as modules, for example:
-python -m src.frontend_backend.utils_and_tests.testLogReg
+python -m src.frontend_backend.utils_and_tests.testBayes
 
 
 [Project Presentation](https://docs.google.com/presentation/d/11ho6nfpZ-6bwAM7O1dvvEKobONj5pNZZ/edit#slide=id.g32974b34fc4_0_18)
